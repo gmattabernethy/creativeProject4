@@ -1,5 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
+const path = require('path');
+var https = require('https');
 
 const app = express();
 app.use(bodyParser.json());
@@ -7,48 +9,62 @@ app.use(bodyParser.urlencoded({ extended: false }));
 
 app.use(express.static('public'))
 
-let items = [];
+let purchases = [];
 let id = 0;
 
-app.get('/api/items', (req, res) => {
-  res.send(items);
+// API to get Static Watch information
+app.get('/api/watch/:id', (req, res) => {
+  let watch = req.params.id;
+  console.log("Static Watch API Lookup for : " + watch + " has been called.")
+  let validWatches = ["vostokN1","vostokAmphibia","poljotOkean"];
+  if (validWatches.indexOf(watch)>=0){
+    res.sendFile(path.resolve('./public/json/' + watch + '.json'));
+  }else{ // Force them to look at an Amphibia
+    res.sendFile(path.resolve('./public/json/vostokAmphibia.json'));
+  }
 });
 
-app.delete('/api/items/:id', (req, res) => {
-    let id = parseInt(req.params.id);
-    let removeIndex = items.map(item => { return item.id; }).indexOf(id);
-    if (removeIndex === -1) {
-      res.status(404).send("Sorry, that item doesn't exist");
-      return;
-    }
-    items.splice(removeIndex, 1);
-    res.sendStatus(200);
+// API to show all purchases
+app.get('/api/purchases', (req, res) => {
+  res.send(purchases);
 });
-  
 
-
-app.post('/api/items', (req, res) => {
+// API to add a purchase
+app.post('/api/purchases', (req, res) => {
   id = id + 1;
-  let item = {id:id, text:req.body.text, rating:req.body.rating, completed: req.body.completed};
-  items.push(item);
-  res.send(item);
+  let watch = req.body.watch;
+  let watchInfo = require('./public/json/' + watch + '.json');
+
+  let purchase = {id:id, watch:watch, date:req.body.date, watchName:watchInfo.name, name:req.body.name,
+    price:watchInfo.price,text:req.body.text, rating:req.body.rating, completed: req.body.completed};
+  purchases.push(purchase);
+  res.send(purchase);
 });
 
-app.put('/api/items/:id', (req, res) => {
-    let id = parseInt(req.params.id);
-    let itemsMap = items.map(item => { return item.id; });
-    let index = itemsMap.indexOf(id);
-    let item = items[index];
-    item.completed = req.body.completed;
-    item.text = req.body.text;
-    item.rating = req.body.rating;
-    // handle drag and drop re-ordering
-    if (req.body.orderChange) {
-      let indexTarget = itemsMap.indexOf(req.body.orderTarget);
-      items.splice(index,1);
-      items.splice(indexTarget,0,item);
-    }
-    res.send(item);
-  });
+// API to delete a purchase
+app.delete('/api/purchases/:id', (req, res) => {
+  let id = parseInt(req.params.id);
+  let removeIndex = purchases.map(purchase => { return purchase.id; }).indexOf(id);
+  if (removeIndex === -1) {
+    res.status(404).send("Sorry, that item doesn't exist.");
+    return;
+  }
+  purchases.splice(removeIndex, 1);
+  res.sendStatus(200);
+});
 
-app.listen(3001, () => console.log('Server listening on port 3001!'))
+// API to change a purchase (may not be required)
+app.put('/api/purchases/:id', (req, res) => {
+  let id = parseInt(req.params.id);
+  let purchasesMap = purchases.map(purchase => { return purchase.id; });
+  let index = purchasesMap.indexOf(id);
+  let purchase = purchases[index];
+  purchase.name = req.body.name;
+
+  purchases.splice(index,1);
+  purchases.splice(index,0,purchase);
+
+  res.send(purchase);
+});
+
+app.listen(3000, () => console.log('Server listening on port 3000!'))
